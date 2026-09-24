@@ -1,0 +1,27 @@
+{
+  "name": "cart-rules-service",
+  "version": "1.0.0",
+  "description": "LHC cart rules, hosted by Connect (Session 8.2)",
+  "main": "dist/index.js",
+  "private": true,
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "connector:post-deploy": "node dist/post-deploy.js",
+    "connector:pre-undeploy": "node dist/pre-undeploy.js"
+  },
+  "dependencies": {
+    "@commercetools/platform-sdk": "^8.3.0",
+    "@commercetools/ts-client": "^3.2.0",
+    "dotenv": "^16.4.5",
+    "express": "^4.21.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.7.0",
+    "typescript": "^5.6.0",
+    "vitest": "^2.1.0",
+    "@types/express": "^4.17.21"
+  }
+}

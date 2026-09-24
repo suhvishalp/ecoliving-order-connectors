@@ -1,0 +1,23 @@
+{
+  "name": "price-feed-job",
+  "version": "1.0.0",
+  "description": "LHC nightly price feed (Session 8.5)",
+  "main": "dist/index.js",
+  "private": true,
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@commercetools/platform-sdk": "^8.3.0",
+    "@commercetools/ts-client": "^3.2.0",
+    "dotenv": "^16.4.5"
+  },
+  "devDependencies": {
+    "@types/node": "^22.7.0",
+    "typescript": "^5.6.0",
+    "vitest": "^2.1.0"
+  }
+}

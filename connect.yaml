@@ -1,0 +1,88 @@
+# The LHC connector — Sessions 8 and 9 of the B2C Developer course.
+#
+# This file is the connector's ENTIRE deployment contract: Connect reads it to know what to build,
+# what to run, how to schedule it, and which environment variables to ask a human for at install time.
+#
+# Three rules that catch everyone once:
+#   1. `name` MUST match the application's folder in this repository.
+#   2. `endpoint` is required for service / event / job. The deployed URL is {connect-url}/{endpoint}.
+#   3. `securedConfiguration` values cannot be read back after install — which is why credentials live there.
+deployAs:
+  # ---------------------------------------------------------------------------------------------
+  # 8.2 — the cart rules that ran behind a tunnel in Session 7, now hosted by Connect.
+  # postDeploy registers the API Extension at CONNECT_SERVICE_URL: nobody pastes a URL again.
+  # ---------------------------------------------------------------------------------------------
+  - name: cart-rules-service
+    applicationType: service
+    endpoint: /cart-rules
+    scripts:
+      postDeploy: npm install && npm run build && npm run connector:post-deploy
+      preUndeploy: npm install && npm run build && npm run connector:pre-undeploy
+    configuration:
+      standardConfiguration:
+        - key: MAX_QUANTITY_PER_LINE
+          description: Reject any line above this quantity. Overridden by the lhc-config Custom Object when present.
+          required: false
+          default: '10'
+        - key: WHITE_GLOVE_THRESHOLD_CENTS
+          description: A line at or above this value (minor units) gets the white-glove flag.
+          required: false
+          default: '40000'
+
+  # ---------------------------------------------------------------------------------------------
+  # 8.3 — Session 7's poll loop, rewritten as a push handler.
+  # Connect provisions the topic; postDeploy creates the Subscription pointing at it.
+  # ---------------------------------------------------------------------------------------------
+  - name: order-events
+    applicationType: event
+    endpoint: /order-events
+    scripts:
+      postDeploy: npm install && npm run build && npm run connector:post-deploy
+      preUndeploy: npm install && npm run build && npm run connector:pre-undeploy
+    configuration:
+      standardConfiguration:
+        - key: BFF_BASE_URL
+          description: Base URL of the LHC BFF whose order-state endpoint this app calls (Session 6).
+          required: true
+        - key: TARGET_STATE_KEY
+          description: State key an order moves to once payment succeeds.
+          required: false
+          default: 'order-picked'
+
+  # ---------------------------------------------------------------------------------------------
+  # 8.5 — the work nobody triggers. No HTTP surface, no caller: a cron expression and a function.
+  # ---------------------------------------------------------------------------------------------
+  - name: price-feed-job
+    applicationType: job
+    endpoint: /price-feed
+    properties:
+      schedule: '0 2 * * *'          # 02:00 daily — overridable per deployment
+    configuration:
+      standardConfiguration:
+        - key: IMPORT_CONTAINER_KEY
+          description: ImportContainer (resourceType price) the feed posts into.
+          required: false
+          default: 'lhc-price-feed'
+
+# Shared by all three applications. Credentials are SECURED: write-only, never displayed again.
+inheritAs:
+  configuration:
+    standardConfiguration:
+      - key: CTP_PROJECT_KEY
+        description: Project key of the commercetools Project.
+        required: true
+      - key: CTP_REGION
+        description: Region hosting the Project, e.g. europe-west1.gcp
+        required: true
+    securedConfiguration:
+      - key: CTP_CLIENT_ID
+        description: client_id of an API Client for the Project.
+        required: true
+      - key: CTP_CLIENT_SECRET
+        description: secret of that API Client.
+        required: true
+      - key: CTP_SCOPE
+        description: >-
+          Scopes of that API Client. Least privilege, per application — see the Session 9.4 hardening
+          review. manage_project works and is exactly what that review should object to.
+        required: true
