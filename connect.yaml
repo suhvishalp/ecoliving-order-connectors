@@ -1,16 +1,18 @@
-# The LHC connector — Sessions 8 and 9 of the B2C Developer course.
+# The LHC connector — Sessions 8 and 9 of the commercetools B2C Developer course.
 #
-# This file is the connector's ENTIRE deployment contract: Connect reads it to know what to build,
-# what to run, how to schedule it, and which environment variables to ask a human for at install time.
+# This file is the connector's ENTIRE deployment contract: Connect reads it to know what to build, what
+# to run, how to schedule it, and what to ask a human for at install time.
 #
 # Three rules that catch everyone once:
 #   1. `name` MUST match the application's folder in this repository.
-#   2. `endpoint` is required for service / event / job. The deployed URL is {connect-url}/{endpoint}.
-#   3. `securedConfiguration` values cannot be read back after install — which is why credentials live there.
+#   2. `endpoint` is required for service / event / job, and the app must mount its router at the same
+#      path — otherwise the platform's traffic 404s.
+#   3. `securedConfiguration` is write-only: entered once at install, never displayed again.
 deployAs:
   # ---------------------------------------------------------------------------------------------
   # 8.2 — the cart rules that ran behind a tunnel in Session 7, now hosted by Connect.
-  # postDeploy registers the API Extension at CONNECT_SERVICE_URL: nobody pastes a URL again.
+  # postDeploy registers the API Extension at CONNECT_SERVICE_URL, WITH authentication.
+  # Needs: manage_extensions (to register itself), view_key_value_documents (the feature flags).
   # ---------------------------------------------------------------------------------------------
   - name: cart-rules-service
     applicationType: service
@@ -21,17 +23,37 @@ deployAs:
     configuration:
       standardConfiguration:
         - key: MAX_QUANTITY_PER_LINE
-          description: Reject any line above this quantity. Overridden by the lhc-config Custom Object when present.
+          description: >-
+            Reject any line above this quantity. Used only when the lhc-config/feature-flags Custom
+            Object cannot be read (the connector fails open on its own defaults).
           required: false
           default: '10'
         - key: WHITE_GLOVE_THRESHOLD_CENTS
-          description: A line at or above this value (minor units) gets the white-glove flag.
+          description: A line at or above this value (minor units) gets the white-glove flag. Fallback, as above.
           required: false
           default: '40000'
+        - key: CONFIG_CACHE_SECONDS
+          description: >-
+            How long the feature-flag Custom Object is cached. The API Extension budget is 2 seconds, so
+            this must not be 0 — a network round trip per cart write spends a real slice of it.
+          required: false
+          default: '60'
+        - key: LOG_LEVEL
+          description: debug | info | warn | error
+          required: false
+          default: 'info'
+      securedConfiguration:
+        - key: EXTENSION_SECRET
+          description: >-
+            Shared secret presented by the platform on every Extension call. postDeploy registers the
+            Extension with it; the app rejects any call without it. Invent a strong random value per
+            installation — the endpoint is on the public internet.
+          required: true
 
   # ---------------------------------------------------------------------------------------------
   # 8.3 — Session 7's poll loop, rewritten as a push handler.
   # Connect provisions the topic; postDeploy creates the Subscription pointing at it.
+  # Needs: manage_subscriptions (to register itself), manage_orders + view_states (read and transition).
   # ---------------------------------------------------------------------------------------------
   - name: order-events
     applicationType: event
@@ -41,47 +63,97 @@ deployAs:
       preUndeploy: npm install && npm run build && npm run connector:pre-undeploy
     configuration:
       standardConfiguration:
-        # No BFF_BASE_URL: a DEPLOYED connector runs in Connect's cloud and cannot reach a laptop, so
-        # this app moves the order through the commercetools API directly (Session 8.3).
         - key: TARGET_STATE_KEY
-          description: State key an order moves to once payment succeeds.
+          description: >-
+            Custom State an order moves to once its payment succeeds. This app talks to the
+            commercetools API directly — a deployed connector cannot reach your BFF on localhost.
           required: false
           default: 'order-picked'
+        - key: CONFIRM_ORDER_STATE
+          description: Also set the built-in orderState to Confirmed alongside the custom transition.
+          required: false
+          default: 'true'
+        - key: MAX_MESSAGE_AGE_HOURS
+          description: >-
+            Backlog guard. Unacknowledged messages are retained 7 days, so a handler broken over a
+            weekend returns to a stampede of stale work; refuse anything older than this.
+          required: false
+          default: '72'
+        - key: LOG_LEVEL
+          description: debug | info | warn | error
+          required: false
+          default: 'info'
 
   # ---------------------------------------------------------------------------------------------
   # 8.5 — the work nobody triggers. No HTTP surface, no caller: a cron expression and a function.
+  # Needs: view_products (resolve SKU -> keys), manage_products + manage_import_containers (the import),
+  # manage_key_value_documents (the feed document and the concurrency lock).
   # ---------------------------------------------------------------------------------------------
   - name: price-feed-job
     applicationType: job
     endpoint: /price-feed
     properties:
-      schedule: '0 2 * * *'          # 02:00 daily — overridable per deployment
+      schedule: '0 2 * * *' # 02:00 daily — overridable per deployment
     configuration:
       standardConfiguration:
         - key: IMPORT_CONTAINER_KEY
-          description: ImportContainer (resourceType price) the feed posts into.
+          description: ImportContainer (resourceType price) the feed is posted into.
           required: false
           default: 'lhc-price-feed'
+        - key: FEED_CONTAINER
+          description: >-
+            Custom Object container holding the pending feed and the run lock. In production the feed
+            would come from SFTP/S3/an ERP endpoint — see FeedSource, which exists so that swap is one file.
+          required: false
+          default: 'lhc-price-feed'
+        - key: FEED_KEY
+          description: Custom Object key holding { rows: [{ sku, currencyCode, centAmount, country? }] }.
+          required: false
+          default: 'pending'
+        - key: LOCK_STALE_MINUTES
+          description: >-
+            A job has no concurrency guard from the platform, so this one locks. A lock older than this
+            is assumed abandoned and taken over.
+          required: false
+          default: '45'
+        - key: POLL_TIMEOUT_SECONDS
+          description: How long to wait for ImportOperations to settle before reporting what is pending.
+          required: false
+          default: '120'
+        - key: POLL_INTERVAL_SECONDS
+          description: Delay between ImportOperation polls.
+          required: false
+          default: '5'
+        - key: CTP_IMPORT_URL
+          description: >-
+            Import API host. Derived from CTP_API_URL when blank (the Import API is a separate service
+            on its own host).
+          required: false
+        - key: LOG_LEVEL
+          description: debug | info | warn | error
+          required: false
+          default: 'info'
 
-# Shared by all three applications. Credentials are SECURED: write-only, never displayed again.
+# ---------------------------------------------------------------------------------------------
+# Credentials are NOT asked for at install time.
+#
+# Declaring apiClient.scopes makes Connect GENERATE an API Client holding exactly these scopes and
+# inject CTP_CLIENT_ID / CTP_CLIENT_SECRET / CTP_SCOPE / CTP_PROJECT_KEY / CTP_API_URL / CTP_AUTH_URL at
+# runtime. Nobody can paste a manage_project secret into the install form, because there is no field
+# for one. Do NOT also declare those CTP_* keys under `configuration` — they are provided at runtime.
+#
+# This client is shared by all three applications, so the list is their union; the per-application
+# comments above record what each one actually needs, which is what a real least-privilege review
+# would split into separate connectors.
+# ---------------------------------------------------------------------------------------------
 inheritAs:
-  configuration:
-    standardConfiguration:
-      - key: CTP_PROJECT_KEY
-        description: Project key of the commercetools Project.
-        required: true
-      - key: CTP_REGION
-        description: Region hosting the Project, e.g. europe-west1.gcp
-        required: true
-    securedConfiguration:
-      - key: CTP_CLIENT_ID
-        description: client_id of an API Client for the Project.
-        required: true
-      - key: CTP_CLIENT_SECRET
-        description: secret of that API Client.
-        required: true
-      - key: CTP_SCOPE
-        description: >-
-          Scopes of that API Client. Least privilege, per application — see the Session 9.4 hardening
-          review. manage_project works and is exactly what that review should object to.
-        required: true
+  apiClient:
+    scopes:
+      - manage_extensions          # cart-rules-service: self-registration
+      - manage_subscriptions       # order-events: self-registration
+      - manage_orders              # order-events: read and transition orders
+      - view_states                # order-events: expand the order's custom State
+      - view_products              # price-feed-job: resolve SKU -> product/variant keys
+      - manage_products            # price-feed-job: the price import writes products
+      - manage_import_containers   # price-feed-job: submit and poll import operations
+      - manage_key_value_documents # feature flags, the feed document, and the run lock

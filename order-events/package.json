@@ -1,27 +1,33 @@
 {
   "name": "order-events",
   "version": "1.0.0",
-  "description": "LHC order events, pushed by a Connect-provisioned queue (Session 8.3)",
+  "description": "LHC order events \u2014 the payment-success handler, pushed by a Connect-provisioned queue (course Session 8.3)",
   "main": "dist/index.js",
+  "type": "module",
   "private": true,
+  "engines": {
+    "node": ">=22"
+  },
   "scripts": {
     "build": "tsc",
     "start": "node dist/index.js",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
-    "connector:post-deploy": "node dist/post-deploy.js",
-    "connector:pre-undeploy": "node dist/pre-undeploy.js"
+    "connector:post-deploy": "node dist/connector/post-deploy.js",
+    "connector:pre-undeploy": "node dist/connector/pre-undeploy.js"
   },
   "dependencies": {
     "@commercetools/platform-sdk": "^8.3.0",
-    "@commercetools/ts-client": "^3.2.0",
+    "@commercetools/ts-client": "^4.0.0",
     "dotenv": "^16.4.5",
     "express": "^4.21.0"
   },
   "devDependencies": {
     "@types/express": "^4.17.21",
     "@types/node": "^22.7.0",
+    "@types/supertest": "^6.0.2",
+    "supertest": "^7.0.0",
     "typescript": "^5.6.0",
-    "vitest": "^4.1.11"
+    "vitest": "^4.0.0"
   }
 }

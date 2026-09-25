@@ -1,84 +1,27 @@
 import 'dotenv/config';
-import express from 'express';
-import { apiRoot } from './client.js';
-import { decode, handle, type Deps, type OrderSnapshot, type TransitionResult } from './handler.js';
+import express, { type Express } from 'express';
+import { readConfiguration } from './utils/config.utils.js';
+import { logger } from './utils/logger.utils.js';
+import { errorMiddleware } from './middleware/error.middleware.js';
+import eventRouter from './routes/event.route.js';
+import statusRouter from './routes/status.route.js';
 
-/**
- * Session 8.3 — the Event application's HTTP surface.
- *
- * Deployed, Connect's message broker calls this. Locally, you call it yourself with the same envelope
- * (see README — "Replaying an event locally"). The handler cannot tell the difference, which is
- * exactly why the local test is worth anything.
- *
- * The acknowledgement contract: 2xx discards the message; anything else brings it back. There is no
- * third option, and "log the error and return 200" is a decision to drop data — so make it on purpose.
- */
-const app = express();
-app.use(express.json());
+readConfiguration();
 
-const deps: Deps = {
-  targetState: process.env.TARGET_STATE_KEY ?? 'order-picked',
+export const app: Express = express();
+app.disable('x-powered-by');
+app.use(express.json({ limit: '10mb' }));
 
-  async loadOrder(orderId: string): Promise<OrderSnapshot | null> {
-    try {
-      const { body } = await apiRoot
-        .orders().withId({ ID: orderId })
-        .get({ queryArgs: { expand: ['state'] } })
-        .execute();
-      return {
-        id: body.id,
-        version: body.version,
-        orderNumber: body.orderNumber ?? null,
-        stateKey: body.state?.obj?.key ?? null,
-      };
-    } catch (err) {
-      if (statusOf(err) === 404) return null;
-      throw err;
-    }
-  },
+app.use('/status', statusRouter);
+// Must match `endpoint` in connect.yaml.
+app.use('/order-events', eventRouter);
 
-  async transition(order: OrderSnapshot, stateKey: string): Promise<TransitionResult> {
-    try {
-      await apiRoot.orders().withId({ ID: order.id }).post({
-        body: {
-          version: order.version,
-          actions: [
-            { action: 'transitionState', state: { typeId: 'state', key: stateKey } },
-            { action: 'changeOrderState', orderState: 'Confirmed' },
-          ],
-        },
-      }).execute();
-      return { ok: true };
-    } catch (err) {
-      const status = statusOf(err);
-      // 409 (someone else moved it) and 429 / 5xx are worth another delivery. Other 4xx are not:
-      // the state machine refused, and it will refuse the redelivery too.
-      const transient = status === 409 || status === 429 || status === undefined || status >= 500;
-      return { ok: false, permanent: !transient, detail: `HTTP ${status ?? 'network'}: ${messageOf(err)}` };
-    }
-  },
-};
+app.use(errorMiddleware);
 
-app.post('/order-events', async (req, res) => {
-  try {
-    const outcome = await handle(decode(req.body), deps);
-    console.log(JSON.stringify(outcome));
-    return res.status(outcome.ack ? 204 : 500).send();
-  } catch (err) {
-    console.error(JSON.stringify({ error: messageOf(err) }));
-    return res.status(500).send();          // unknown failure -> redeliver
-  }
-});
-
-app.get('/order-events/health', (_req, res) => res.status(200).json({ ok: true }));
-
-function statusOf(err: unknown): number | undefined {
-  const s = (err as { statusCode?: number | string })?.statusCode;
-  return typeof s === 'number' ? s : undefined;
+const PORT = Number(process.env.PORT ?? 8080);
+/* c8 ignore start */
+if (process.env.NODE_ENV !== 'test') {
+  app.listen(PORT, () => logger.info('order-events listening', { port: PORT }));
 }
-function messageOf(err: unknown): string {
-  return (err as Error)?.message ?? String(err);
-}
-
-const port = Number(process.env.PORT ?? 8081);
-app.listen(port, () => console.log(`order-events listening on :${port}`));
+/* c8 ignore stop */
+export default app;
