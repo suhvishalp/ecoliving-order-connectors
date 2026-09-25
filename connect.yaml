@@ -41,9 +41,8 @@ deployAs:
       preUndeploy: npm install && npm run build && npm run connector:pre-undeploy
     configuration:
       standardConfiguration:
-        - key: BFF_BASE_URL
-          description: Base URL of the LHC BFF whose order-state endpoint this app calls (Session 6).
-          required: true
+        # No BFF_BASE_URL: a DEPLOYED connector runs in Connect's cloud and cannot reach a laptop, so
+        # this app moves the order through the commercetools API directly (Session 8.3).
         - key: TARGET_STATE_KEY
           description: State key an order moves to once payment succeeds.
           required: false

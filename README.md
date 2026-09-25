@@ -9,6 +9,11 @@ tunnel, the payment-success consumer Session 7 had to poll for, and a nightly jo
 | [`order-events/`](order-events) | `event` | A handler fed by a **Subscription** whose queue Connect provisions | 8.3 / 8.4 |
 | [`price-feed-job/`](price-feed-job) | `job` | A **cron** handler — no HTTP surface, no caller | 8.5 |
 
+> **Published at** https://github.com/commercetools/sphere-b2c-connector-2026 — `solution` branch.
+> Verified before publishing: all three apps `tsc --noEmit` clean, `npm run build` produces `dist/`,
+> 8/8 handler tests pass, and the running service answers a real `ExtensionInput` (400 with our
+> message for 11 units; 200 + `setCustomField` for a €499 line). **No deployment has been run yet.**
+
 ## Why this is a separate repository
 
 Connect deploys a **GitHub repository at a git tag**, and **`connect.yaml` must be at the repository
