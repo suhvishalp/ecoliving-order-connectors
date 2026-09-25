@@ -9,7 +9,7 @@ tunnel, the payment-success consumer Session 7 had to poll for, and a nightly jo
 | [`order-events/`](order-events) | `event` | A handler fed by a **Subscription** whose queue Connect provisions | 8.3 / 8.4 |
 | [`price-feed-job/`](price-feed-job) | `job` | A **cron** handler — no HTTP surface, no caller | 8.5 |
 
-> **Published at** https://github.com/commercetools/sphere-b2c-connector-2026 — `solution` branch.
+> **Published at** https://github.com/commercetools/sphere-b2c-connector-2026 — `main`.
 > Verified before publishing: all three apps `tsc --noEmit` clean, `npm run build` produces `dist/`,
 > 8/8 handler tests pass, and the running service answers a real `ExtensionInput` (400 with our
 > message for 11 units; 200 + `setCustomField` for a €499 line). **No deployment has been run yet.**
@@ -21,8 +21,10 @@ root**. A connector therefore cannot live in a subfolder of the course monorepo.
 build repo at `courses/b2c-dev/code/connector/` and synced here by
 [`sync-connector.sh`](../participant-sync/README.md), the same way the participant repo is.
 
-`main` = starter (stubs) · `solution` = complete. **Tags are cut on `solution` only**, because the tag
-is what Connect actually deploys.
+**One branch, `main`.** There is no starter/solution split, because participants do not implement the
+connector: the trainer walks this code through, everyone runs it locally, and the trainer installs it
+once into the shared project. **Cut a tag before creating the ConnectorStaged** — Connect deploys tags,
+not branches.
 
 ## Run it locally (Session 8)
 
@@ -35,7 +37,9 @@ commercetools connect application start order-events
 commercetools connect application test
 ```
 
-The BFF must be running (`code/dev-all.sh`) — `order-events` calls its Session 6 order-state endpoint.
+The BFF need not be running: `order-events` moves orders through the **commercetools API directly**,
+because once deployed it runs in Connect's cloud where your laptop is unreachable. Keep the BFF and
+storefront up anyway if you want to *see* the effect (the confirmation page's order timeline).
 
 ### Replaying an event locally
 
