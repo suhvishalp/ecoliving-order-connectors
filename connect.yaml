@@ -84,55 +84,8 @@ deployAs:
           required: false
           default: 'info'
 
-  # ---------------------------------------------------------------------------------------------
-  # 8.5 — the work nobody triggers. No HTTP surface, no caller: a cron expression and a function.
-  # Needs: view_products (resolve SKU -> keys), manage_products + manage_import_containers (the import),
-  # manage_key_value_documents (the feed document and the concurrency lock).
-  # ---------------------------------------------------------------------------------------------
-  - name: price-feed-job
-    applicationType: job
-    endpoint: /price-feed
-    properties:
-      schedule: '0 2 * * *' # 02:00 daily — overridable per deployment
-    configuration:
-      standardConfiguration:
-        - key: IMPORT_CONTAINER_KEY
-          description: ImportContainer (resourceType price) the feed is posted into.
-          required: false
-          default: 'lhc-price-feed'
-        - key: FEED_CONTAINER
-          description: >-
-            Custom Object container holding the pending feed and the run lock. In production the feed
-            would come from SFTP/S3/an ERP endpoint — see FeedSource, which exists so that swap is one file.
-          required: false
-          default: 'lhc-price-feed'
-        - key: FEED_KEY
-          description: Custom Object key holding { rows: [{ sku, currencyCode, centAmount, country? }] }.
-          required: false
-          default: 'pending'
-        - key: LOCK_STALE_MINUTES
-          description: >-
-            A job has no concurrency guard from the platform, so this one locks. A lock older than this
-            is assumed abandoned and taken over.
-          required: false
-          default: '45'
-        - key: POLL_TIMEOUT_SECONDS
-          description: How long to wait for ImportOperations to settle before reporting what is pending.
-          required: false
-          default: '120'
-        - key: POLL_INTERVAL_SECONDS
-          description: Delay between ImportOperation polls.
-          required: false
-          default: '5'
-        - key: CTP_IMPORT_URL
-          description: >-
-            Import API host. Derived from CTP_API_URL when blank (the Import API is a separate service
-            on its own host).
-          required: false
-        - key: LOG_LEVEL
-          description: debug | info | warn | error
-          required: false
-          default: 'info'
+  # 8.5 — the Job app (the nightly price feed) lives in its OWN connector, commercetools/sphere-price-feed-connector-2026,
+  # so it can be installed on its own with its own least-privilege API client.
 
 # ---------------------------------------------------------------------------------------------
 # Credentials are NOT asked for at install time.
@@ -142,9 +95,9 @@ deployAs:
 # runtime. Nobody can paste a manage_project secret into the install form, because there is no field
 # for one. Do NOT also declare those CTP_* keys under `configuration` — they are provided at runtime.
 #
-# This client is shared by all three applications, so the list is their union; the per-application
-# comments above record what each one actually needs, which is what a real least-privilege review
-# would split into separate connectors.
+# This client is shared by both applications, so the list is their union; the per-application
+# comments above record what each one actually needs. The price-feed job was split into its own
+# connector for exactly that reason (commercetools/sphere-price-feed-connector-2026).
 # ---------------------------------------------------------------------------------------------
 inheritAs:
   apiClient:
@@ -153,7 +106,4 @@ inheritAs:
       - manage_subscriptions       # order-events: self-registration
       - manage_orders              # order-events: read and transition orders
       - view_states                # order-events: expand the order's custom State
-      - view_products              # price-feed-job: resolve SKU -> product/variant keys
-      - manage_products            # price-feed-job: the price import writes products
-      - manage_import_containers   # price-feed-job: submit and poll import operations
-      - manage_key_value_documents # feature flags, the feed document, and the run lock
+      - manage_key_value_documents # cart-rules-service: the feature-flag Custom Object

@@ -1,13 +1,15 @@
 # LHC Connector — commercetools Connect *(course Sessions 8 & 9)*
 
-Three Connect applications for the Lifestyle Home Corp course: the cart rules Session 7 ran behind a
-tunnel, the payment-success consumer Session 7 had to poll for, and a nightly job nobody triggers.
+Two Connect applications for the Lifestyle Home Corp course: the cart rules Session 7 ran behind a
+tunnel, and the payment-success consumer Session 7 had to poll for. The third, the nightly price-feed
+**job**, is its own connector, [`sphere-price-feed-connector-2026`](https://github.com/commercetools/sphere-price-feed-connector-2026), so it can be
+installed on its own and reused by the CIL track.
 
 | Folder | Type | What it does | Session |
 |---|---|---|---|
 | [`cart-rules-service/`](cart-rules-service) | `service` | An HTTP endpoint an **API Extension** calls before a cart is saved | 8.2 |
 | [`order-events/`](order-events) | `event` | A handler fed by a **Subscription** whose queue Connect provisions | 8.3 / 8.4 |
-| [`price-feed-job/`](price-feed-job) | `job` | A **cron** bulk price import through the Import API | 8.5 |
+| [`sphere-price-feed-connector-2026`](https://github.com/commercetools/sphere-price-feed-connector-2026) | `job` | A **cron** CSV → Import API price feed, as a separate connector | 8.5 |
 
 **One branch, `main`.** There is no starter/solution split: participants do not implement the
 connector. The trainer walks this code through, everyone runs it locally, and the trainer installs it
@@ -33,12 +35,9 @@ Stated per behaviour, because this is the decision a production review asks abou
 | The **order cannot be read** by the event app | **Acknowledge and drop**, logged as an error | Permanent: redelivery for 7 days will not make a deleted order reappear |
 | The **State machine refuses** a transition (4xx) | **Acknowledge and drop**, logged as an error | Permanent: the machine will refuse the redelivery identically |
 | commercetools returns **409 / 429 / 5xx** to the event app | **Nack** — the platform redelivers | Transient. The handler is idempotent, so a second delivery is safe |
-| The **Import API** rejects a row | That row is reported failed; the job **exits non-zero** | Partial failure is normal for bulk; the run must still be visibly red |
-| Another **job run** is still going | Skip, exit **zero** | Not a failure. A red log should mean something is wrong, not that the schedule is tight |
 
 **Idempotency is stateless everywhere.** No local dedup store, no processed-ids table. The cart rules
-return a delta (nothing to do = no actions), the event handler reads the order's own state, and the
-import upserts by key. A local store would be a second source of truth that can disagree with the first.
+return a delta (nothing to do = no actions), and the event handler reads the order's own state. A local store would be a second source of truth that can disagree with the first.
 
 ## Scopes
 
@@ -52,14 +51,11 @@ there is no field for one.
 | `manage_subscriptions` | order-events | registering and removing its own Subscription |
 | `manage_orders` | order-events | reading an order and transitioning it |
 | `view_states` | order-events | expanding the order's custom State |
-| `view_products` | price-feed-job | resolving SKU → product/variant keys |
-| `manage_products` | price-feed-job | the price import writes products |
-| `manage_import_containers` | price-feed-job | submitting and polling import operations |
-| `manage_key_value_documents` | all three | feature flags, the feed document, the run lock |
+| `manage_key_value_documents` | cart-rules-service | the feature-flag Custom Object |
 
-The generated client is **shared by all three applications**, so the declared list is their union. A
-real least-privilege split would mean three connectors; the per-application comments in `connect.yaml`
-record what each one actually needs.
+The generated client is **shared by both applications**, so the declared list is their union; the
+per-application comments in `connect.yaml` record what each one actually needs. That is also why the
+price-feed job became its own connector: its import scopes no longer ride along here.
 
 ## Configuration
 
@@ -83,23 +79,13 @@ again, changeable only by redeploying.
 | `MAX_MESSAGE_AGE_HOURS` | standard | `72` | Backlog guard — drop anything older |
 | `LOG_LEVEL` | standard | `info` | |
 
-### `price-feed-job`
-| Key | Kind | Default | Purpose |
-|---|---|---|---|
-| `IMPORT_CONTAINER_KEY` | standard | `lhc-price-feed` | ImportContainer (`resourceType: price`) |
-| `FEED_CONTAINER` / `FEED_KEY` | standard | `lhc-price-feed` / `pending` | Custom Object holding `{ rows: [...] }` and the lock |
-| `LOCK_STALE_MINUTES` | standard | `45` | A lock older than this is assumed abandoned |
-| `POLL_TIMEOUT_SECONDS` / `POLL_INTERVAL_SECONDS` | standard | `120` / `5` | Waiting for ImportOperations to settle |
-| `CTP_IMPORT_URL` | standard | derived | Import API host; derived from `CTP_API_URL` when blank |
-| `LOG_LEVEL` | standard | `info` | |
-
 ---
 
 ## Run it locally
 
 ```bash
 npm i -g @commercetools/cli                      # the Connect CLI
-cp cart-rules-service/.env.example cart-rules-service/.env   # and the same for the other two
+cp cart-rules-service/.env.example cart-rules-service/.env   # and the same for order-events
 commercetools connect validate                   # connect.yaml, before Connect judges it
 cd cart-rules-service && npm install && npm test && npm start
 ```
@@ -185,9 +171,7 @@ business action (re-transition it) or POST the envelope by hand to the deployed 
 local development.
 
 ### The job did not run
-It has no HTTP surface, so the logs are the only evidence. Check for `Skipped: another run is in
-progress` (a lock held by a previous run) and for `Taking over a stale lock`. A crashed run's lock
-expires after `LOCK_STALE_MINUTES`.
+See the runbook in the [price-feed connector's README](https://github.com/commercetools/sphere-price-feed-connector-2026#runbook).
 
 ### Cart writes are failing project-wide
 Almost always the Extension: either the service is cold (~15 s boot on sandbox, against a 2 s budget)
@@ -201,5 +185,3 @@ delete it.
 |---|---|
 | `service` | Extension budget **2 s** (10 s max) · app timeout 5 min · sandbox cold start **~15 s** · max 25 Extensions per project |
 | `event` | **10 s** to acknowledge · retry on anything outside `102·200·201·202·204` · unacked retained **7 days** · push backoff · at-least-once, **no ordering**, **no condition** |
-| `job` | **30 min** timeout · no concurrency guard (we lock) · failure is silent unless logged |
-| Import API | **20 resources** per request · a 2xx is an acknowledgement, not a result |
