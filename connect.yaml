@@ -84,7 +84,7 @@ deployAs:
           required: false
           default: 'info'
 
-  # 8.5 — the Job app (the nightly price feed) lives in its OWN connector, commercetools/sphere-price-feed-connector-2026,
+  # 8.5 — the Job app (the nightly price feed) lives in its OWN connector, commercetools/lhc-price-feed-connector,
   # so it can be installed on its own with its own least-privilege API client.
 
 # ---------------------------------------------------------------------------------------------
@@ -97,7 +97,7 @@ deployAs:
 #
 # This client is shared by both applications, so the list is their union; the per-application
 # comments above record what each one actually needs. The price-feed job was split into its own
-# connector for exactly that reason (commercetools/sphere-price-feed-connector-2026).
+# connector for exactly that reason (commercetools/lhc-price-feed-connector).
 # ---------------------------------------------------------------------------------------------
 inheritAs:
   apiClient:

@@ -2,14 +2,14 @@
 
 Two Connect applications for the Lifestyle Home Corp course: the cart rules Session 7 ran behind a
 tunnel, and the payment-success consumer Session 7 had to poll for. The third, the nightly price-feed
-**job**, is its own connector, [`sphere-price-feed-connector-2026`](https://github.com/commercetools/sphere-price-feed-connector-2026), so it can be
+**job**, is its own connector, [`lhc-price-feed-connector`](https://github.com/commercetools/lhc-price-feed-connector), so it can be
 installed on its own and reused by the CIL track.
 
 | Folder | Type | What it does | Session |
 |---|---|---|---|
 | [`cart-rules-service/`](cart-rules-service) | `service` | An HTTP endpoint an **API Extension** calls before a cart is saved | 8.2 |
 | [`order-events/`](order-events) | `event` | A handler fed by a **Subscription** whose queue Connect provisions | 8.3 / 8.4 |
-| [`sphere-price-feed-connector-2026`](https://github.com/commercetools/sphere-price-feed-connector-2026) | `job` | A **cron** CSV → Import API price feed, as a separate connector | 8.5 |
+| [`lhc-price-feed-connector`](https://github.com/commercetools/lhc-price-feed-connector) | `job` | A **cron** CSV → Import API price feed, as a separate connector | 8.5 |
 
 **One branch, `main`.** There is no starter/solution split: participants do not implement the
 connector. The trainer walks this code through, everyone runs it locally, and the trainer installs it
@@ -87,7 +87,7 @@ again, changeable only by redeploying.
 npm i -g @commercetools/cli                      # the Connect CLI
 cp cart-rules-service/.env.example cart-rules-service/.env   # and the same for order-events
 commercetools connect validate                   # connect.yaml, before Connect judges it
-cd cart-rules-service && npm install && npm test && npm start
+cd cart-rules-service && npm install && npm test && npm run build && npm start   # :8090 (order-events: :8091)
 ```
 
 Locally the `CTP_*` values come from `.env`; deployed, Connect injects them. The code cannot tell the
@@ -96,7 +96,7 @@ difference, which is the whole point of `.env.example` mirroring the manifest.
 ### Exercising the service by hand
 
 ```bash
-curl -s localhost:8080/cart-rules -H 'content-type: application/json' \
+curl -s localhost:8090/cart-rules -H 'content-type: application/json' \
   -H "Authorization: Bearer $EXTENSION_SECRET" \
   -d '{"action":"Update","resource":{"typeId":"cart","id":"c1","obj":{"id":"c1","version":1,
        "lineItems":[{"id":"l1","quantity":11,"variant":{"id":1,"sku":"CARM-023"},
@@ -112,7 +112,7 @@ There is **no Subscription on a laptop**, so you deliver the same base64 envelop
 ```bash
 MSG='{"id":"m-1","type":"OrderPaymentStateChanged","paymentState":"Paid",
       "resource":{"typeId":"order","id":"<a real order id>"}}'
-curl -s localhost:8080/order-events -H 'content-type: application/json' \
+curl -s localhost:8091/order-events -H 'content-type: application/json' \
   -d "{\"message\":{\"data\":\"$(printf '%s' "$MSG" | base64)\"}}"
 ```
 Send it **twice**: one transition, not two — the handler reads the order's state rather than keeping a
@@ -171,7 +171,7 @@ business action (re-transition it) or POST the envelope by hand to the deployed 
 local development.
 
 ### The job did not run
-See the runbook in the [price-feed connector's README](https://github.com/commercetools/sphere-price-feed-connector-2026#runbook).
+See the runbook in the [price-feed connector's README](https://github.com/commercetools/lhc-price-feed-connector#runbook).
 
 ### Cart writes are failing project-wide
 Almost always the Extension: either the service is cold (~15 s boot on sandbox, against a 2 s budget)
