@@ -1,6 +1,0 @@
-projectKey=project
-serverUrl=http://host.docker.internal:9001
-serverVersion=9.9.8.100196
-dashboardUrl=http://host.docker.internal:9001/dashboard?id=project
-ceTaskId=AaFSeWSxhIg42LQ4PM0r
-ceTaskUrl=http://host.docker.internal:9001/api/ce/task?id=AaFSeWSxhIg42LQ4PM0r
