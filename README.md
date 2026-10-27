@@ -2,14 +2,14 @@
 
 Two Connect applications for the Lifestyle Home Corp course: the cart rules Session 7 ran behind a
 tunnel, and the payment-success consumer Session 7 had to poll for. The third, the nightly price-feed
-**job**, is its own connector, [`lhc-price-feed-connector`](https://github.com/commercetools/lhc-price-feed-connector), so it can be
+**job**, is its own connector, [`ecoliving-price-feed-connector`](https://github.com/commercetools/ecoliving-price-feed-connector), so it can be
 installed on its own and reused by the CIL track.
 
 | Folder | Type | What it does | Session |
 |---|---|---|---|
 | [`cart-rules-service/`](cart-rules-service) | `service` | An HTTP endpoint an **API Extension** calls before a cart is saved | 8.2 |
 | [`order-events/`](order-events) | `event` | A handler fed by a **Subscription** whose queue Connect provisions | 8.3 / 8.4 |
-| [`lhc-price-feed-connector`](https://github.com/commercetools/lhc-price-feed-connector) | `job` | A **cron** CSV → Import API price feed, as a separate connector | 8.5 |
+| [`ecoliving-price-feed-connector`](https://github.com/commercetools/ecoliving-price-feed-connector) | `job` | A **cron** CSV → Import API price feed, as a separate connector | 8.5 |
 
 **One branch, `main`.** There is no starter/solution split: participants do not implement the
 connector. The trainer walks this code through, everyone runs it locally, and the trainer installs it
@@ -171,7 +171,7 @@ business action (re-transition it) or POST the envelope by hand to the deployed 
 local development.
 
 ### The job did not run
-See the runbook in the [price-feed connector's README](https://github.com/commercetools/lhc-price-feed-connector#runbook).
+See the runbook in the [price-feed connector's README](https://github.com/commercetools/ecoliving-price-feed-connector#runbook).
 
 ### Cart writes are failing project-wide
 Almost always the Extension: either the service is cold (~15 s boot on sandbox, against a 2 s budget)

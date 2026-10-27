@@ -8,6 +8,16 @@ import { ensureCartRulesExtension } from './actions.js';
  * Runs after a successful deploy. Connect injects CONNECT_SERVICE_URL — this application's own public
  * URL — so the Extension registers itself and can never drift from what is actually running.
  */
+/**
+ * Connect's CONNECT_SERVICE_URL already ends with the application's `endpoint` from connect.yaml (the deploy log
+ * says "provisioned successfully at https://service-….commercetools.app/<endpoint>"). Appending the endpoint again
+ * registers `/<endpoint>/<endpoint>`, which 404s. Accept both shapes so local runs with a bare host still work.
+ */
+export function extensionUrl(serviceUrl: string, endpoint: string): string {
+  const base = serviceUrl.replace(/\/+$/, '');
+  return base.endsWith(endpoint) ? base : `${base}${endpoint}`;
+}
+
 async function run(): Promise<void> {
   const serviceUrl = process.env.CONNECT_SERVICE_URL;
   if (!serviceUrl) throw new Error('CONNECT_SERVICE_URL is not set — is this a `service` application?');
@@ -20,10 +30,11 @@ async function run(): Promise<void> {
   await apiRoot.get().execute();
   logger.info('postDeploy: credentials verified');
 
-  await ensureCartRulesExtension(apiRoot, `${serviceUrl}/cart-rules`, extensionSecret);
+  await ensureCartRulesExtension(apiRoot, extensionUrl(serviceUrl, '/cart-rules'), extensionSecret);
 }
 
-run().catch((error: Error) => {
+/* c8 ignore next */
+if (process.env.NODE_ENV !== 'test') run().catch((error: Error) => {
   process.stderr.write(`Post-deploy failed: ${error.message}\n`);
   process.exitCode = 1;
 });
