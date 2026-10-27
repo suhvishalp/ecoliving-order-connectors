@@ -1,5 +1,7 @@
 # LHC Connector — commercetools Connect *(course Sessions 8 & 9)*
 
+> **Installing it in Merchant Center?** Follow [INSTALL.md](INSTALL.md): the steps and the sample values for every setting.
+
 Two Connect applications for the Lifestyle Home Corp course: the cart rules Session 7 ran behind a
 tunnel, and the payment-success consumer Session 7 had to poll for. The third, the nightly price-feed
 **job**, is its own connector, [`ecoliving-price-feed-connector`](https://github.com/commercetools/ecoliving-price-feed-connector), so it can be
