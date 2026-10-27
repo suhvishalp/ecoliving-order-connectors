@@ -13,7 +13,9 @@ import { buildDestination, ensureOrderEventsSubscription } from './actions.js';
 async function run(): Promise<void> {
   readConfiguration();
   const apiRoot = createApiRoot();
-  await apiRoot.get().execute();
+  // Verify the credentials with a call INSIDE the generated client's scopes. Reading the Project (GET /{projectKey})
+  // needs view_project_settings, which inheritAs does not grant: that 403 failed every postDeploy silently.
+  await apiRoot.subscriptions().get({ queryArgs: { limit: 1 } }).execute();
   logger.info('postDeploy: credentials verified');
 
   await ensureOrderEventsSubscription(apiRoot, buildDestination());
