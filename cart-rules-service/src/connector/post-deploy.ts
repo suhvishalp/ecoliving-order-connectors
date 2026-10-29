@@ -2,7 +2,7 @@ import 'dotenv/config';
 import { createApiRoot } from '../client/create.client.js';
 import { readConfiguration } from '../utils/config.utils.js';
 import { logger } from '../utils/logger.utils.js';
-import { ensureCartRulesExtension } from './actions.js';
+import { assertWhiteGloveType, ensureCartRulesExtension } from './actions.js';
 
 /**
  * Runs after a successful deploy. Connect injects CONNECT_SERVICE_URL — this application's own public
@@ -31,6 +31,8 @@ async function run(): Promise<void> {
   // needs view_project_settings, which inheritAs does not grant: that 403 failed every postDeploy silently.
   await apiRoot.extensions().get({ queryArgs: { limit: 1 } }).execute();
   logger.info('postDeploy: credentials verified');
+  await assertWhiteGloveType(apiRoot);
+  logger.info('postDeploy: order-extras Type present');
 
   await ensureCartRulesExtension(apiRoot, extensionUrl(serviceUrl, '/cart-rules'), extensionSecret);
 }

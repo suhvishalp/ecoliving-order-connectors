@@ -25,7 +25,7 @@ Merchant Center → **Connect** → **Manage connectors** → **Create connector
 | Name | `EcoLiving Order Connectors — <your name>` |
 | Key | `<yourname>-ecoliving-order-connectors` *(keys are unique in the organization: use your own name)* |
 | Repository URL | `https://github.com/commercetools/ecoliving-order-connectors.git` |
-| Tag | `v1.0.4` |
+| Tag | `v1.0.5` |
 | Private projects | the course project, e.g. `europe-west1.gcp:<project-key>` |
 | Supported regions | `europe-west1.gcp` |
 
@@ -41,7 +41,7 @@ Content-Type: application/json
   "name": "EcoLiving Order Connectors — <your name>",
   "description": "The cart-rules API Extension as a Service app and the order-events Subscription consumer as an Event app.",
   "creator": { "title": "Participant", "name": "<your name>", "email": "<your email>", "company": "<company>", "noOfDevelopers": 1 },
-  "repository": { "url": "https://github.com/commercetools/ecoliving-order-connectors.git", "tag": "v1.0.4" },
+  "repository": { "url": "https://github.com/commercetools/ecoliving-order-connectors.git", "tag": "v1.0.5" },
   "privateProjects": ["europe-west1.gcp:<project-key>"],
   "supportedRegions": ["europe-west1.gcp"]
 }
@@ -71,7 +71,7 @@ Merchant Center → **Connect** → **Manage connectors** → **Organization con
 choose the project, region `europe-west1.gcp`, deployment type **Sandbox**, then enter the values below.
 
 You are **not** asked for API credentials: `connect.yaml` declares `inheritAs.apiClient.scopes`, and Connect generates an
-API client with exactly those scopes (`manage_extensions`, `manage_subscriptions`, `manage_orders`, `view_states`, `manage_key_value_documents`). That is least privilege you can read in the repository.
+API client with exactly those scopes (`manage_extensions`, `manage_subscriptions`, `manage_orders`, `view_states`, `manage_key_value_documents`, `view_types`). That is least privilege you can read in the repository.
 
 ### Values
 
@@ -90,6 +90,9 @@ API client with exactly those scopes (`manage_extensions`, `manage_subscriptions
 **Before deploying:** every participant has run `DELETE /api/extensibility/extension` (the Session 7 tunnel
 Extension). Two cart-rules Extensions would both fire, and a dead tunnel fails every cart write with
 `504 Extension did not respond in time`. Messages must be enabled (the Session 6 seeder folder does it).
+The `order-extras` Custom Type must exist (the Session 7 seeder folder creates it): cart-rules-service writes
+`requiresWhiteGlove` to it, and its postDeploy **fails on purpose** when the Type is missing — otherwise every cart
+over the white-glove threshold would fail with "The extension returned update actions that could not be executed".
 
 ## 5 · Verify it works
 

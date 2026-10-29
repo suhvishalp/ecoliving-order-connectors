@@ -2,6 +2,33 @@ import type { ByProjectKeyRequestBuilder, ExtensionDraft, ExtensionUpdateAction 
 import { logger } from '../utils/logger.utils.js';
 
 export const EXTENSION_KEY = 'lhc-cart-rules';
+export const TYPE_KEY = 'order-extras';
+export const WHITE_GLOVE_FIELD = 'requiresWhiteGlove';
+
+/**
+ * The Custom Type the rule writes to must exist BEFORE the Extension is registered. Without it every cart write that
+ * crosses the white-glove threshold fails ("The extension returned update actions that could not be executed") — for
+ * every client in the project, long after a green deploy. So postDeploy refuses: a red deploy is the cheap failure.
+ * The Type is seeded in Session 7 (Postman seeder, "Session 7 — Extensibility").
+ */
+export async function assertWhiteGloveType(apiRoot: ByProjectKeyRequestBuilder): Promise<void> {
+  let fields: string[];
+  try {
+    const { body } = await apiRoot.types().withKey({ key: TYPE_KEY }).get().execute();
+    fields = body.fieldDefinitions.map((f) => f.name);
+  } catch (error) {
+    if ((error as { statusCode?: number }).statusCode === 404) {
+      throw new Error(
+        `Custom Type '${TYPE_KEY}' does not exist in this project — run the seeder's "Session 7 — Extensibility" folder, ` +
+          'then redeploy. Registering the Extension without it would fail every cart write over the white-glove threshold.'
+      );
+    }
+    throw error;
+  }
+  if (!fields.includes(WHITE_GLOVE_FIELD)) {
+    throw new Error(`Custom Type '${TYPE_KEY}' has no '${WHITE_GLOVE_FIELD}' field — add it (Boolean), then redeploy.`);
+  }
+}
 
 /**
  * Register the API Extension IDEMPOTENTLY — get, then update; never delete-then-recreate.

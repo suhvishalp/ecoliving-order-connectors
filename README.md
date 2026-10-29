@@ -54,6 +54,7 @@ there is no field for one.
 | `manage_orders` | order-events | reading an order and transitioning it |
 | `view_states` | order-events | expanding the order's custom State |
 | `manage_key_value_documents` | cart-rules-service | the feature-flag Custom Object |
+| `view_types` | cart-rules-service | postDeploy checks that the `order-extras` Type exists before registering |
 
 The generated client is **shared by both applications**, so the declared list is their union; the
 per-application comments in `connect.yaml` record what each one actually needs. That is also why the

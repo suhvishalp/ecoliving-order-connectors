@@ -12,7 +12,8 @@ deployAs:
   # ---------------------------------------------------------------------------------------------
   # 8.2 — the cart rules that ran behind a tunnel in Session 7, now hosted by Connect.
   # postDeploy registers the API Extension at CONNECT_SERVICE_URL, WITH authentication.
-  # Needs: manage_extensions (to register itself), view_key_value_documents (the feature flags).
+  # Needs: manage_extensions (to register itself), view_key_value_documents (the feature flags),
+  #        view_types (postDeploy refuses to register when the order-extras Type is missing).
   # ---------------------------------------------------------------------------------------------
   - name: cart-rules-service
     applicationType: service
@@ -107,3 +108,4 @@ inheritAs:
       - manage_orders              # order-events: read and transition orders
       - view_states                # order-events: expand the order's custom State
       - manage_key_value_documents # cart-rules-service: the feature-flag Custom Object
+      - view_types                 # cart-rules-service: postDeploy checks the order-extras Type exists

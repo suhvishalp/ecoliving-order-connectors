@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { ensureCartRulesExtension, deleteCartRulesExtension, EXTENSION_KEY } from '../src/connector/actions.js';
+import { assertWhiteGloveType, ensureCartRulesExtension, deleteCartRulesExtension, EXTENSION_KEY } from '../src/connector/actions.js';
 
 /**
  * The property that matters: a redeploy must never leave a window with no Extension registered. So the
@@ -64,5 +64,27 @@ describe('preUndeploy teardown', () => {
     const h = apiRootWith(undefined);
     await expect(deleteCartRulesExtension(h.apiRoot)).resolves.toBeUndefined();
     expect(h.del).not.toHaveBeenCalled();
+  });
+});
+
+describe('postDeploy precondition — the order-extras Type', () => {
+  const rootWithType = (result: { fieldDefinitions: Array<{ name: string }> } | { statusCode: number }) => {
+    const execute = async () => {
+      if ('statusCode' in result) throw Object.assign(new Error('not found'), result);
+      return { body: result };
+    };
+    return { types: () => ({ withKey: () => ({ get: () => ({ execute }) }) }) } as never;
+  };
+
+  it('passes when the Type has the requiresWhiteGlove field', async () => {
+    await expect(assertWhiteGloveType(rootWithType({ fieldDefinitions: [{ name: 'owner' }, { name: 'requiresWhiteGlove' }] }))).resolves.toBeUndefined();
+  });
+
+  it('fails the deploy when the Type is missing — a red deploy beats broken cart writes', async () => {
+    await expect(assertWhiteGloveType(rootWithType({ statusCode: 404 }))).rejects.toThrow(/order-extras' does not exist/);
+  });
+
+  it('fails the deploy when the field is missing', async () => {
+    await expect(assertWhiteGloveType(rootWithType({ fieldDefinitions: [{ name: 'owner' }] }))).rejects.toThrow(/no 'requiresWhiteGlove' field/);
   });
 });
