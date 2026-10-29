@@ -1,10 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import type { Cart } from '@commercetools/platform-sdk';
-import { applyRules, WHITE_GLOVE_FIELD } from '../src/services/cart-rules.service.js';
+import { applyRules, TYPE_KEY, WHITE_GLOVE_FIELD } from '../src/services/cart-rules.service.js';
 
 const cfg = { maxQuantityPerLine: 10, whiteGloveThresholdCents: 40000 };
 
-const cart = (lines: Array<{ qty: number; cents: number; sku?: string }>, flagged = false): Cart =>
+// custom: 'none' = no Custom Type at all; 'typed' = order-extras attached, flag unset; 'flagged' = flag set.
+const cart = (lines: Array<{ qty: number; cents: number; sku?: string }>, flagged = false, custom: 'none' | 'typed' = 'typed'): Cart =>
   ({
     id: 'cart-1',
     version: 1,
@@ -16,7 +17,9 @@ const cart = (lines: Array<{ qty: number; cents: number; sku?: string }>, flagge
     })),
     ...(flagged
       ? { custom: { type: { typeId: 'type', id: 't' }, fields: { [WHITE_GLOVE_FIELD]: true } } }
-      : {}),
+      : custom === 'typed'
+        ? { custom: { type: { typeId: 'type', id: 't' }, fields: { owner: 'p1' } } }
+        : {}),
   }) as unknown as Cart;
 
 describe('cart rules — validation', () => {
@@ -51,6 +54,21 @@ describe('cart rules — enrichment is a delta', () => {
     const r = applyRules(cart([{ qty: 1, cents: 40000 }]), cfg);
     if (r.status !== 200) throw new Error('unreachable');
     expect(r.actions).toEqual([{ action: 'setCustomField', name: WHITE_GLOVE_FIELD, value: true }]);
+  });
+
+  it('attaches order-extras when the cart has no Custom Type — setCustomField alone is refused', () => {
+    // The recurring-line case: a €449 subscription price on a cart nobody stamped.
+    const r = applyRules(cart([{ qty: 1, cents: 44900 }], false, 'none'), cfg);
+    if (r.status !== 200) throw new Error('unreachable');
+    expect(r.actions).toEqual([
+      { action: 'setCustomType', type: { typeId: 'type', key: TYPE_KEY }, fields: { [WHITE_GLOVE_FIELD]: true } },
+    ]);
+  });
+
+  it('a cheap cart with no Custom Type gets nothing — the type is only attached to set the flag', () => {
+    const r = applyRules(cart([{ qty: 1, cents: 2599 }], false, 'none'), cfg);
+    if (r.status !== 200) throw new Error('unreachable');
+    expect(r.actions).toEqual([]);
   });
 
   it('returns NO actions when the flag is already correct — no write amplification', () => {

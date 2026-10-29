@@ -8,6 +8,8 @@ import type { Cart, CartUpdateAction } from '@commercetools/platform-sdk';
  * moving a rule from your own service to a platform-hosted one changes WHERE it runs, not what it decides.
  */
 export const WHITE_GLOVE_FIELD = 'requiresWhiteGlove';
+/** The seeded Custom Type (Session 7) that carries `requiresWhiteGlove`, `giftMessage` and `owner`. */
+export const TYPE_KEY = 'order-extras';
 
 export interface Thresholds {
   maxQuantityPerLine: number;
@@ -55,6 +57,17 @@ export function applyRules(cart: Cart, cfg: Thresholds): RuleResult {
   const alreadyFlagged = cart.custom?.fields?.[WHITE_GLOVE_FIELD] === true;
 
   if (needsWhiteGlove && !alreadyFlagged) {
+    // A cart with no Custom Type yet (any cart the BFF did not stamp — a guest cart from Session 4, an import,
+    // the Merchant Center) cannot take setCustomField: the platform refuses the whole write with InvalidOperation
+    // "no custom type set". Attach `order-extras` with the flag instead. A recurring line is the usual way in:
+    // its subscription price can cross the threshold on a cart that never had a custom field.
+    if (!cart.custom) {
+      return {
+        status: 200,
+        actions: [{ action: 'setCustomType', type: { typeId: 'type', key: TYPE_KEY }, fields: { [WHITE_GLOVE_FIELD]: true } }],
+        summary: 'white glove set (order-extras attached)',
+      };
+    }
     return {
       status: 200,
       actions: [{ action: 'setCustomField', name: WHITE_GLOVE_FIELD, value: true }],

@@ -76,9 +76,13 @@ describe('the API Extension contract', () => {
   });
 
   it('answers 200 with actions when it enriches', async () => {
+    // This input's cart has no Custom Type, so the flag arrives with `order-extras` attached (setCustomField
+    // alone would be refused by the platform with InvalidOperation).
     const res = await request(app).post('/cart-rules').set(AUTH).send(input(1, 49900));
     expect(res.status).toBe(200);
-    expect(res.body).toEqual({ actions: [{ action: 'setCustomField', name: 'requiresWhiteGlove', value: true }] });
+    expect(res.body).toEqual({
+      actions: [{ action: 'setCustomType', type: { typeId: 'type', key: 'order-extras' }, fields: { requiresWhiteGlove: true } }],
+    });
   });
 
   it('answers 200 with an EMPTY body when nothing needs to change', async () => {
