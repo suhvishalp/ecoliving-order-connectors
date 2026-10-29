@@ -25,7 +25,7 @@ Merchant Center → **Connect** → **Manage connectors** → **Create connector
 | Name | `EcoLiving Order Connectors — <your name>` |
 | Key | `<yourname>-ecoliving-order-connectors` *(keys are unique in the organization: use your own name)* |
 | Repository URL | `https://github.com/commercetools/ecoliving-order-connectors.git` |
-| Tag | `v1.0.3` |
+| Tag | `v1.0.4` |
 | Private projects | the course project, e.g. `europe-west1.gcp:<project-key>` |
 | Supported regions | `europe-west1.gcp` |
 
@@ -41,7 +41,7 @@ Content-Type: application/json
   "name": "EcoLiving Order Connectors — <your name>",
   "description": "The cart-rules API Extension as a Service app and the order-events Subscription consumer as an Event app.",
   "creator": { "title": "Participant", "name": "<your name>", "email": "<your email>", "company": "<company>", "noOfDevelopers": 1 },
-  "repository": { "url": "https://github.com/commercetools/ecoliving-order-connectors.git", "tag": "v1.0.3" },
+  "repository": { "url": "https://github.com/commercetools/ecoliving-order-connectors.git", "tag": "v1.0.4" },
   "privateProjects": ["europe-west1.gcp:<project-key>"],
   "supportedRegions": ["europe-west1.gcp"]
 }
